@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Test ze zvířat</title>
+<style>
+body {
+  margin:0;
+  padding:20px;
+  font-family:"Poppins",Arial,sans-serif;
+  background:linear-gradient(135deg,#4facfe,#00f2fe);
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  min-height:100vh;
+  text-align:center;
+}
+.box {
+  width:90%;
+  max-width:600px;
+  background:rgba(255,255,255,0.15);
+  padding:30px;
+  border-radius:20px;
+  backdrop-filter:blur(15px);
+  box-shadow:0 0 40px rgba(0,0,0,0.2);
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+}
+h1 {
+  color:white;
+  font-size:28px;
+  margin-bottom:20px;
+  text-shadow:0 0 5px rgba(0,0,0,0.3);
+}
+img {
+  max-width:100%;
+  height:auto;
+  border-radius:15px;
+  margin:20px 0;
+  display:none;
+}
+input {
+  width:80%;
+  padding:14px;
+  font-size:18px;
+  border-radius:12px;
+  border:none;
+  outline:none;
+  margin-bottom:20px;
+  background:rgba(255,255,255,0.7);
+  display:none; /* zůstává skryté na úvodní stránce */
+  text-align:center; /* text vycentrovaný */
+}
+input:focus {
+  background:rgba(255,255,255,1);
+  box-shadow:0 0 10px rgba(255,255,255,0.7);
+}
+button {
+  padding:14px 25px;
+  font-size:18px;
+  border-radius:12px;
+  border:none;
+  cursor:pointer;
+  background:#ffffff;
+  color:#333;
+  font-weight:bold;
+  box-shadow:0 4px 15px rgba(0,0,0,0.2);
+  transition:0.3s;
+}
+button:hover {
+  background:#f5f5f5;
+  transform:scale(1.05);
+}
+.msg {
+  font-size:20px;
+  font-weight:bold;
+  color:white;
+  margin-top:10px;
+  min-height:28px;
+}
+.ok {
+  color:#b2ffb2;
+  text-shadow:0 0 8px rgba(0,255,0,0.7);
+}
+.bad {
+  color:#ffb2b2;
+  text-shadow:0 0 8px rgba(255,0,0,0.7);
+}
+.stats {
+  color:white;
+  margin-top:15px;
+  font-size:18px;
+  min-height:24px;
+}
+.progress-container {
+  width:100%;
+  background:rgba(255,255,255,0.3);
+  height:20px;
+  border-radius:10px;
+  margin:15px 0;
+  display:none;
+}
+.progress-bar {
+  height:100%;
+  width:0%;
+  background:#ffffff;
+  border-radius:10px;
+  transition:width 0.3s;
+}
+@media (max-width:500px){
+  input,button{width:90%;padding:12px;font-size:16px;}
+  h1{font-size:24px;}
+}
+</style>
+</head>
+<body>
+<div class="box">
+  <h1>Uhádni zvíře</h1>
+  <button id="startBtn">Spustit test</button>
+  <img id="foto" src="" alt="zvíře">
+  <input id="odpoved" type="text" placeholder="Napiš, co to je…"><br>
+  <button id="submitBtn" style="display:none;">Odeslat</button>
+  <div class="progress-container" id="progressContainer">
+    <div class="progress-bar" id="progressBar"></div>
+  </div>
+  <div id="vysledek" class="msg"></div>
+  <div id="statistika" class="stats"></div>
+</div>
+
+<script>
+const obrazky = [
+  { soubor: "pes.jpg", odpoved: "pes" },
+  { soubor: "kocka.jpg", odpoved: "kočka" },
+  { soubor: "kun.jpg", odpoved: "kůň" },
+  { soubor: "lev.jpg", odpoved: "lev" },
+  { soubor: "tygr.jpg", odpoved: "tygr" }
+];
+
+let aktualni = null;
+let obrazkyNeopr = [];
+let spravne = 0;
+let spatne = 0;
+let otazky = 0;
+let praveBezi = false;
+let timeoutId = null;
+
+function startTest() {
+  spravne = 0;
+  spatne = 0;
+  otazky = 0;
+  obrazkyNeopr = [...obrazky];
+  praveBezi = false;
+  if(timeoutId) { clearTimeout(timeoutId); timeoutId = null; }
+
+  document.getElementById("startBtn").style.display = "none";
+  document.getElementById("foto").style.display = "block";
+  document.getElementById("odpoved").style.display = "block";
+  document.getElementById("submitBtn").style.display = "inline-block";
+  document.getElementById("vysledek").innerHTML = "";
+  document.getElementById("statistika").innerHTML = "";
+  document.getElementById("progressContainer").style.display = "block";
+  document.getElementById("progressBar").style.width = "0%";
+
+  nahodnyObrazek();
+  document.getElementById("odpoved").focus();
+}
+
+function nahodnyObrazek() {
+  if(obrazkyNeopr.length === 0) {
+    document.getElementById("foto").style.display = "none";
+    document.getElementById("odpoved").style.display = "none";
+    document.getElementById("submitBtn").style.display = "none";
+    let procent = otazky>0 ? Math.round(spravne/otazky*100) : 0;
+    document.getElementById("vysledek").innerHTML = `Test dokončen! Správně: ${spravne}, Špatně: ${spatne} (${procent}%)`;
+    document.getElementById("startBtn").innerHTML = "Restartovat test";
+    document.getElementById("startBtn").style.display = "inline-block";
+    praveBezi = false;
+    document.getElementById("progressBar").style.width = "100%";
+    return;
+  }
+  let index = Math.floor(Math.random() * obrazkyNeopr.length);
+  aktualni = obrazkyNeopr[index];
+  obrazkyNeopr.splice(index,1);
+  document.getElementById("foto").src = aktualni.soubor;
+  praveBezi = false;
+  document.getElementById("odpoved").focus();
+}
+
+function vyhodnot() {
+  if(praveBezi && timeoutId) {
+    clearTimeout(timeoutId);
+    timeoutId = null;
+    document.getElementById("vysledek").innerHTML = "";
+    nahodnyObrazek();
+    return;
+  }
+  if(praveBezi) return;
+
+  const text = document.getElementById("odpoved").value.toLowerCase().trim();
+  if(text === "") return;
+  praveBezi = true;
+  otazky++;
+  const vysl = document.getElementById("vysledek");
+  if(text === aktualni.odpoved.toLowerCase()) {
+    vysl.innerHTML = "✔ Správně!";
+    vysl.className = "msg ok";
+    spravne++;
+  } else {
+    vysl.innerHTML = "✘ Špatně — správně: " + aktualni.odpoved;
+    vysl.className = "msg bad";
+    spatne++;
+  }
+  document.getElementById("odpoved").value = "";
+  updateStatistika();
+  updateProgress();
+
+  timeoutId = setTimeout(() => {
+    vysl.innerHTML = "";
+    praveBezi = false;
+    timeoutId = null;
+    nahodnyObrazek();
+  }, 1500);
+}
+
+function updateStatistika() {
+  let procent = otazky>0 ? Math.round(spravne/otazky*100) : 0;
+  document.getElementById("statistika").innerHTML = `Otázky: ${otazky}, Správně: ${spravne}, Špatně: ${spatne} (${procent}%)`;
+}
+
+function updateProgress() {
+  let total = obrazky.length;
+  let completed = otazky;
+  let width = Math.round((completed / total) * 100);
+  document.getElementById("progressBar").style.width = width + "%";
+}
+
+// Enter key pro Start/Restart i odpovědi
+document.addEventListener("keypress", function(e){
+  if(e.key === "Enter") {
+    const startBtn = document.getElementById("startBtn");
+    const odpoved = document.getElementById("odpoved");
+    if(startBtn.style.display !== "none") {
+      startTest();
+    } else if(odpoved.style.display !== "none") {
+      vyhodnot();
+    }
+  }
+});
+
+// tlačítka
+document.getElementById("startBtn").addEventListener("click", startTest);
+document.getElementById("submitBtn").addEventListener("click", vyhodnot);
+</script>
+</body>
+</html>
