@@ -131,12 +131,13 @@ button:hover {
 </div>
 
 <script>
+// Obrázky a více správných variant odpovědí
 const obrazky = [
-  { soubor: "pes.jpg", odpoved: "pes" },
-  { soubor: "kocka.jpg", odpoved: "kočka" },
-  { soubor: "kun.jpg", odpoved: "kůň" },
-  { soubor: "lev.jpg", odpoved: "lev" },
-  { soubor: "tygr.jpg", odpoved: "tygr" }
+  { soubor: "pes.jpg", odpoved: ["pes"] },
+  { soubor: "z-velky.jpg", odpoved: ["kočka", "kocka"] },
+  { soubor: "kun.jpg", odpoved: ["kůň", "kun"] },
+  { soubor: "lev.jpg", odpoved: ["lev"] },
+  { soubor: "tygr.jpg", odpoved: ["tygr"] }
 ];
 
 let aktualni = null;
@@ -147,6 +148,7 @@ let otazky = 0;
 let praveBezi = false;
 let timeoutId = null;
 
+// Start testu
 function startTest() {
   spravne = 0;
   spatne = 0;
@@ -168,6 +170,7 @@ function startTest() {
   document.getElementById("odpoved").focus();
 }
 
+// Náhodný obrázek
 function nahodnyObrazek() {
   if(obrazkyNeopr.length === 0) {
     document.getElementById("foto").style.display = "none";
@@ -189,6 +192,7 @@ function nahodnyObrazek() {
   document.getElementById("odpoved").focus();
 }
 
+// Vyhodnocení odpovědi
 function vyhodnot() {
   if(praveBezi && timeoutId) {
     clearTimeout(timeoutId);
@@ -204,15 +208,19 @@ function vyhodnot() {
   praveBezi = true;
   otazky++;
   const vysl = document.getElementById("vysledek");
-  if(text === aktualni.odpoved.toLowerCase()) {
+
+  // kontrola více variant
+  const spravneOdpovedi = aktualni.odpoved.map(o => o.toLowerCase());
+  if(spravneOdpovedi.includes(text)) {
     vysl.innerHTML = "✔ Správně!";
     vysl.className = "msg ok";
     spravne++;
   } else {
-    vysl.innerHTML = "✘ Špatně — správně: " + aktualni.odpoved;
+    vysl.innerHTML = "✘ Špatně — správně: " + aktualni.odpoved[0];
     vysl.className = "msg bad";
     spatne++;
   }
+
   document.getElementById("odpoved").value = "";
   updateStatistika();
   updateProgress();
@@ -225,11 +233,13 @@ function vyhodnot() {
   }, 1500);
 }
 
+// Aktualizace statistiky
 function updateStatistika() {
   let procent = otazky>0 ? Math.round(spravne/otazky*100) : 0;
   document.getElementById("statistika").innerHTML = `Otázky: ${otazky}, Správně: ${spravne}, Špatně: ${spatne} (${procent}%)`;
 }
 
+// Aktualizace progress baru
 function updateProgress() {
   let total = obrazky.length;
   let completed = otazky;
@@ -256,3 +266,5 @@ document.getElementById("submitBtn").addEventListener("click", vyhodnot);
 </script>
 </body>
 </html>
+
+
