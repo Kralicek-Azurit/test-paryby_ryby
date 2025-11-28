@@ -1,210 +1,222 @@
-:root {
-  --bg: #0f172a;          /* slate-900 */
-  --card: #111827;        /* gray-900 */
-  --text: #e5e7eb;        /* gray-200 */
-  --muted: #9ca3af;       /* gray-400 */
-  --primary: #6366f1;     /* indigo-500 */
-  --primary-700: #4f46e5;
-  --accent: #22c55e;      /* green-500 */
-  --danger: #ef4444;      /* red-500 */
-  --shadow: 0 10px 25px rgba(0,0,0,0.35);
-  --radius: 16px;
-}
+// Malý helper: odstraní diakritiku a sjednotí text na porovnávání
+const normalize = (s) =>
+  s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\p{L}\p{N}\s-]/gu, "")
+    .trim();
 
-* { box-sizing: border-box; }
-html, body { height: 100%; }
-body {
-  margin: 0;
-  background: radial-gradient(1200px 600px at 10% 10%, #0b1020, var(--bg));
-  color: var(--text);
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
-  line-height: 1.5;
-}
+// Výchozí data (načtou se jen pokud v LocalStorage nic není)
+const DEFAULT_ANIMALS = [
+  {
+    image: "https://images.unsplash.com/photo-1546182990-dffeafbe841d?q=80&w=1200&auto=format&fit=crop",
+    answers: ["pes", "pejsek", "dog", "canis", "psík"],
+  },
+  {
+    image: "https://images.unsplash.com/photo-1518791841217-8f162f1e1131?q=80&w=1200&auto=format&fit=crop",
+    answers: ["kočka", "kocka", "cat", "micka", "felis"],
+  },
+  {
+    image: "https://images.unsplash.com/photo-1504593811423-6dd665756154?q=80&w=1200&auto=format&fit=crop",
+    answers: ["papoušek", "papousek", "parrot", "pták", "ptak"],
+  },
+];
 
-.app-header {
-  padding: 32px 16px 8px;
-  text-align: center;
-}
-.app-header h1 {
-  margin: 0;
-  font-size: clamp(28px, 4vw, 40px);
-  letter-spacing: 0.5px;
-}
-.subtitle {
-  margin-top: 6px;
-  color: var(--muted);
-  font-size: 0.95rem;
-}
+// Stav aplikace
+let animals = [];
+let currentIndex = 0;
+let attempts = 0;
 
-.container {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 16px;
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 16px;
-}
+// DOM prvky
+const img = document.getElementById("animalImage");
+const skeleton = document.getElementById("imageSkeleton");
+const guessForm = document.getElementById("guessForm");
+const guessInput = document.getElementById("guessInput");
+const feedback = document.getElementById("feedback");
+const attemptsInfo = document.getElementById("attemptsInfo");
+const answersInfo = document.getElementById("answersInfo");
+const nextBtn = document.getElementById("nextBtn");
 
-@media (min-width: 900px) {
-  .container {
-    grid-template-columns: 1.2fr 0.8fr;
-    grid-auto-rows: min-content;
+const addForm = document.getElementById("addForm");
+const imageUrlInput = document.getElementById("imageUrl");
+const answersInput = document.getElementById("answers");
+const addFeedback = document.getElementById("addFeedback");
+const clearBtn = document.getElementById("clearBtn");
+
+const animalList = document.getElementById("animalList");
+
+// Načtení dat z LocalStorage nebo použití defaultu
+function loadAnimals() {
+  const raw = localStorage.getItem("animals");
+  if (raw) {
+    try {
+      animals = JSON.parse(raw);
+    } catch {
+      animals = DEFAULT_ANIMALS;
+    }
+  } else {
+    animals = DEFAULT_ANIMALS;
   }
-  #list { grid-column: 1 / -1; }
 }
 
-.card {
-  background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 16px;
+// Uložení
+function saveAnimals() {
+  localStorage.setItem("animals", JSON.stringify(animals));
 }
 
-.image-wrap {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 16 / 10;
-  border-radius: 12px;
-  overflow: hidden;
-  background: #0b1225;
-  margin-bottom: 12px;
+// Zobrazení aktuálního zvířete
+function showCurrent() {
+  attempts = 0;
+  feedback.textContent = "";
+  feedback.className = "feedback";
+
+  const item = animals[currentIndex];
+  answersInfo.textContent = `Uznávané odpovědi: ${item.answers.length}`;
+  attemptsInfo.textContent = `Pokusy: ${attempts}`;
+
+  img.style.display = "none";
+  skeleton.style.display = "block";
+  img.src = item.image;
+  img.alt = "Zvíře k uhodnutí";
+
+  // Po načtení obrázku skryj skeleton
+  img.onload = () => {
+    skeleton.style.display = "none";
+    img.style.display = "block";
+  };
+  img.onerror = () => {
+    skeleton.style.display = "none";
+    img.style.display = "block";
+    img.src =
+      "data:image/svg+xml;charset=UTF-8," +
+      encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='800' height='500'>
+        <rect width='100%' height='100%' fill='#0b1225'/>
+        <text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='#9ca3af' font-size='24'>
+          Obrázek nelze načíst
+        </text>
+      </svg>`);
+  };
 }
 
-#animalImage {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: none; /* zobrazí se po načtení */
+function nextAnimal() {
+  currentIndex = (currentIndex + 1) % animals.length;
+  guessInput.value = "";
+  showCurrent();
 }
 
-.skeleton {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, #0b1225 25%, #121a35 50%, #0b1225 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.8s infinite;
-}
-@keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+// Ověření odpovědi
+function checkAnswer(input) {
+  const normInput = normalize(input);
+  const accepted = animals[currentIndex].answers.map(normalize);
+  return accepted.includes(normInput);
 }
 
-.form-inline {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 8px;
-  align-items: center;
-}
-.form-inline input {
-  width: 100%;
-  padding: 12px 14px;
-  border-radius: 10px;
-  border: 1px solid rgba(255,255,255,0.15);
-  background: rgba(255,255,255,0.06);
-  color: var(--text);
-  outline: none;
-}
-.form-inline input::placeholder { color: #b4b9c7; }
+// Přidání zvířete
+function addAnimal(imageUrl, answersRaw) {
+  const list = answersRaw
+    .split(",")
+    .map((a) => a.trim())
+    .filter((a) => a.length > 0);
 
-.btn {
-  padding: 10px 14px;
-  border-radius: 10px;
-  border: 1px solid rgba(255,255,255,0.15);
-  background: rgba(255,255,255,0.06);
-  color: var(--text);
-  cursor: pointer;
-  transition: transform 0.05s ease, background 0.2s ease, border-color 0.2s ease;
-}
-.btn:hover { transform: translateY(-1px); }
-.btn:active { transform: translateY(0); }
+  if (!imageUrl || list.length === 0) {
+    return { ok: false, msg: "Zadej URL obrázku a alespoň jednu odpověď." };
+  }
 
-.btn.primary {
-  background: linear-gradient(180deg, var(--primary), var(--primary-700));
-  border-color: rgba(255,255,255,0.15);
-}
-.btn.danger {
-  background: linear-gradient(180deg, var(--danger), #b91c1c);
-  border-color: rgba(255,255,255,0.15);
+  animals.push({ image: imageUrl, answers: list });
+  saveAnimals();
+  renderList();
+  return { ok: true, msg: "Zvíře bylo úspěšně přidáno." };
 }
 
-.feedback {
-  min-height: 24px;
-  margin: 6px 0;
-  color: var(--muted);
-}
-.feedback.success { color: var(--accent); font-weight: 600; }
-.feedback.error { color: var(--danger); font-weight: 600; }
+// Vykreslení seznamu
+function renderList() {
+  animalList.innerHTML = "";
+  animals.forEach((a, i) => {
+    const li = document.createElement("li");
 
-.meta {
-  display: flex;
-  gap: 12px;
-  color: var(--muted);
-  font-size: 0.9rem;
-}
+    const thumb = document.createElement("img");
+    thumb.src = a.image;
+    thumb.alt = `Náhled zvířete ${i + 1}`;
 
-#add .field {
-  display: grid;
-  gap: 6px;
-  margin-bottom: 12px;
-}
-.hint { color: var(--muted); }
+    const right = document.createElement("div");
 
-.list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 10px;
-}
-.list li {
-  display: grid;
-  grid-template-columns: 64px 1fr;
-  gap: 10px;
-  align-items: center;
-  padding: 10px;
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 12px;
-  background: rgba(255,255,255,0.04);
-}
-.list img {
-  width: 64px;
-  height: 64px;
-  border-radius: 8px;
-  object-fit: cover;
-  background: #0b1225;
-}
-.list .title {
-  font-weight: 600;
-}
-.list .chips {
-  margin-top: 4px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.chip {
-  padding: 4px 8px;
-  border-radius: 999px;
-  font-size: 0.8rem;
-  color: #c7d2fe;
-  background: rgba(99,102,241,0.15);
-  border: 1px solid rgba(99,102,241,0.35);
+    const title = document.createElement("div");
+    title.className = "title";
+    title.textContent = `Zvíře #${i + 1}`;
+
+    const chips = document.createElement("div");
+    chips.className = "chips";
+    a.answers.forEach((ans) => {
+      const chip = document.createElement("span");
+      chip.className = "chip";
+      chip.textContent = ans;
+      chips.appendChild(chip);
+    });
+
+    right.appendChild(title);
+    right.appendChild(chips);
+
+    li.appendChild(thumb);
+    li.appendChild(right);
+    animalList.appendChild(li);
+  });
 }
 
-/* přístupnost */
-.sr-only {
-  position: absolute !important;
-  height: 1px; width: 1px;
-  overflow: hidden; clip: rect(1px, 1px, 1px, 1px);
-  white-space: nowrap;
-}
+// Handlery
+guessForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const val = guessInput.value.trim();
+  if (!val) return;
 
-.app-footer {
-  text-align: center;
-  color: var(--muted);
-  padding: 18px;
-  font-size: 0.9rem;
-}
+  attempts++;
+  attemptsInfo.textContent = `Pokusy: ${attempts}`;
 
+  if (checkAnswer(val)) {
+    feedback.textContent = "Správně! 🎉";
+    feedback.className = "feedback success";
+  } else {
+    feedback.textContent = "Zkus to znovu.";
+    feedback.className = "feedback error";
+  }
+});
+
+nextBtn.addEventListener("click", () => {
+  nextAnimal();
+});
+
+addForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const imageUrl = imageUrlInput.value.trim();
+  const answersRaw = answersInput.value.trim();
+
+  const result = addAnimal(imageUrl, answersRaw);
+  addFeedback.textContent = result.msg;
+  addFeedback.className = "feedback " + (result.ok ? "success" : "error");
+
+  if (result.ok) {
+    imageUrlInput.value = "";
+    answersInput.value = "";
+    // hned přepneme na nově přidané zvíře
+    currentIndex = animals.length - 1;
+    showCurrent();
+  }
+});
+
+clearBtn.addEventListener("click", () => {
+  const ok = confirm("Opravdu chceš vymazat všechna uložená zvířata?");
+  if (!ok) return;
+  localStorage.removeItem("animals");
+  animals = DEFAULT_ANIMALS.slice();
+  saveAnimals();
+  renderList();
+  currentIndex = 0;
+  showCurrent();
+  addFeedback.textContent = "Seznam byl obnoven na výchozí.";
+  addFeedback.className = "feedback";
+});
+
+// Inicializace
+loadAnimals();
+renderList();
+showCurrent();
