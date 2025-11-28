@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Test ze zvířat</title>
+
 <style>
 body {
   margin:0;
@@ -51,8 +52,8 @@ input {
   outline:none;
   margin-bottom:20px;
   background:rgba(255,255,255,0.7);
-  display:none; /* zůstává skryté na úvodní stránce */
-  text-align:center; /* text vycentrovaný */
+  display:none;
+  text-align:center;
 }
 input:focus {
   background:rgba(255,255,255,1);
@@ -117,100 +118,111 @@ button:hover {
 </style>
 </head>
 <body>
+
 <div class="box">
   <h1>Uhádni zvíře</h1>
+
   <button id="startBtn">Spustit test</button>
+
   <img id="foto" src="" alt="zvíře">
+
   <input id="odpoved" type="text" placeholder="Napiš, co to je…"><br>
+
   <button id="submitBtn" style="display:none;">Odeslat</button>
+
   <div class="progress-container" id="progressContainer">
     <div class="progress-bar" id="progressBar"></div>
   </div>
+
   <div id="vysledek" class="msg"></div>
   <div id="statistika" class="stats"></div>
 </div>
 
 <script>
-// Obrázky a více správných variant odpovědí
+// ====== Obrázky (libovolný počet, jen přidávej další) ======
 const obrazky = [
   { soubor: "Obrazky/1889292.jpg", odpoved: ["LATIMERIE PODIVNÁ","Latimeria chalumnae","LATIMERIE","LATIMERIE PODIVNA"] },
-  { soubor: "Obrazky/bahnik.jpeg", odpoved: ["BAHNÍK", "Dipnoi","BAHNIK"] },
-  { soubor: "Obrazky/Sturgeon.jpg", odpoved: ["JESETER", "Chondrostei"] },
+  { soubor: "Obrazky/bahnik.jpeg", odpoved: ["BAHNÍK","Dipnoi","BAHNIK"] },
+  { soubor: "Obrazky/Sturgeon.jpg", odpoved: ["JESETER","Chondrostei"] },
   { soubor: "lev.jpg", odpoved: ["lev"] },
   { soubor: "tygr.jpg", odpoved: ["tygr"] }
 ];
 
+// ====== Proměnné ======
 let aktualni = null;
 let obrazkyNeopr = [];
 let spravne = 0;
 let spatne = 0;
 let otazky = 0;
-let praveBezi = false;
 let timeoutId = null;
+let praveBezi = false;
+let celkemOtazek = 0;
 
-// Start testu
+// ====== Start testu ======
 function startTest() {
   spravne = 0;
   spatne = 0;
   otazky = 0;
-  obrazkyNeopr = [...obrazky];
-  praveBezi = false;
+
+  obrazkyNeopr = [...obrazky];  // kopie všech obrázků
+  celkemOtazek = obrazky.length;
+
   if(timeoutId) { clearTimeout(timeoutId); timeoutId = null; }
 
   document.getElementById("startBtn").style.display = "none";
   document.getElementById("foto").style.display = "block";
   document.getElementById("odpoved").style.display = "block";
   document.getElementById("submitBtn").style.display = "inline-block";
+  document.getElementById("progressContainer").style.display = "block";
+
   document.getElementById("vysledek").innerHTML = "";
   document.getElementById("statistika").innerHTML = "";
-  document.getElementById("progressContainer").style.display = "block";
   document.getElementById("progressBar").style.width = "0%";
 
   nahodnyObrazek();
   document.getElementById("odpoved").focus();
 }
 
-// Náhodný obrázek
+// ====== Náhodný obrázek ======
 function nahodnyObrazek() {
   if(obrazkyNeopr.length === 0) {
+    // hotovo
     document.getElementById("foto").style.display = "none";
     document.getElementById("odpoved").style.display = "none";
     document.getElementById("submitBtn").style.display = "none";
-    let procent = otazky>0 ? Math.round(spravne/otazky*100) : 0;
-    document.getElementById("vysledek").innerHTML = `Test dokončen! Správně: ${spravne}, Špatně: ${spatne} (${procent}%)`;
+
+    let procent = Math.round(spravne / otazky * 100);
+    document.getElementById("vysledek").innerHTML =
+      `Test dokončen! Správně: ${spravne}, Špatně: ${spatne} (${procent}%)`;
+
     document.getElementById("startBtn").innerHTML = "Restartovat test";
     document.getElementById("startBtn").style.display = "inline-block";
-    praveBezi = false;
     document.getElementById("progressBar").style.width = "100%";
     return;
   }
+
   let index = Math.floor(Math.random() * obrazkyNeopr.length);
   aktualni = obrazkyNeopr[index];
   obrazkyNeopr.splice(index,1);
+
   document.getElementById("foto").src = aktualni.soubor;
   praveBezi = false;
-  document.getElementById("odpoved").focus();
 }
 
-// Vyhodnocení odpovědi
+// ====== Vyhodnocení ======
 function vyhodnot() {
-  if(praveBezi && timeoutId) {
-    clearTimeout(timeoutId);
-    timeoutId = null;
-    document.getElementById("vysledek").innerHTML = "";
-    nahodnyObrazek();
-    return;
-  }
-  if(praveBezi) return;
-
-  const text = document.getElementById("odpoved").value.toLowerCase().trim();
+  const pole = document.getElementById("odpoved");
+  const text = pole.value.toLowerCase().trim();
   if(text === "") return;
+
+  if(praveBezi) return;
   praveBezi = true;
+
   otazky++;
   const vysl = document.getElementById("vysledek");
 
-  // kontrola více variant
   const spravneOdpovedi = aktualni.odpoved.map(o => o.toLowerCase());
+
   if(spravneOdpovedi.includes(text)) {
     vysl.innerHTML = "✔ Správně!";
     vysl.className = "msg ok";
@@ -221,58 +233,41 @@ function vyhodnot() {
     spatne++;
   }
 
-  document.getElementById("odpoved").value = "";
+  pole.value = "";
   updateStatistika();
   updateProgress();
 
   timeoutId = setTimeout(() => {
     vysl.innerHTML = "";
     praveBezi = false;
-    timeoutId = null;
     nahodnyObrazek();
   }, 1500);
 }
 
-// Aktualizace statistiky
+// ====== Statistika ======
 function updateStatistika() {
-  let procent = otazky>0 ? Math.round(spravne/otazky*100) : 0;
-  document.getElementById("statistika").innerHTML = `Otázky: ${otazky}, Správně: ${spravne}, Špatně: ${spatne} (${procent}%)`;
+  let procent = Math.round(spravne / otazky * 100);
+  document.getElementById("statistika").innerHTML =
+    `Otázky: ${otazky}, Správně: ${spravne}, Špatně: ${spatne} (${procent}%)`;
 }
 
-// Aktualizace progress baru
+// ====== Progress bar ======
 function updateProgress() {
-  let total = obrazky.length;
-  let completed = otazky;
-  let width = Math.round((completed / total) * 100);
+  let width = Math.round((otazky / celkemOtazek) * 100);
   document.getElementById("progressBar").style.width = width + "%";
 }
 
-// Enter key pro Start/Restart i odpovědi
-document.addEventListener("keypress", function(e){
+// ====== ENTER ======
+document.addEventListener("keypress", e => {
   if(e.key === "Enter") {
-    const startBtn = document.getElementById("startBtn");
-    const odpoved = document.getElementById("odpoved");
-    if(startBtn.style.display !== "none") {
-      startTest();
-    } else if(odpoved.style.display !== "none") {
-      vyhodnot();
-    }
+    if(document.getElementById("startBtn").style.display !== "none") startTest();
+    else vyhodnot();
   }
 });
 
-// tlačítka
+// ====== Tlačítka ======
 document.getElementById("startBtn").addEventListener("click", startTest);
 document.getElementById("submitBtn").addEventListener("click", vyhodnot);
 </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
